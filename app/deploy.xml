@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+
+<project name="Thread-App" default="main" 
+         xmlns:rhq="antlib:org.rhq.bundle">    
+
+   <rhq:bundle name="Thread App" version="1.5" description="Test application deploy">
+        <rhq:deployment-unit name="application"  manageRootDir="false" postinstallTarget="verify_deploy">
+	        <rhq:url-archive url="http://172.20.100.220:11080/builds/threaddump.war">
+            </rhq:url-archive>
+            <rhq:url-file url="http://172.20.100.220:11080/jon/prod-ds.xml" destinationFile="prod-ds.xml">
+            </rhq:url-file>
+        </rhq:deployment-unit>
+    </rhq:bundle>
+
+    <target name="main">
+        <echo message="Entered Main"/>
+    </target>
+
+    <!--
+    <target name="verify_deploy">
+        <property name="postinstallTargetExecuted" value="true"/>
+        <echo message="Verifying deployment directory..."/>
+        <waitfor maxwait="5" maxwaitunit="second" timeoutproperty="deploy.file.timeout">
+          <available property="deploy.file.deployed" file="${rhq.deploy.dir}/threaddump.war.deployed"/>
+        </waitfor>
+        <fail message="${rhq.deploy.dir}: application deployment failure" if="deploy.file.timeout" status="6"/>
+    </target>
+    -->
+</project>

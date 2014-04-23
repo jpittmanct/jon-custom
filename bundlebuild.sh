@@ -39,66 +39,6 @@ BVER='1'
 BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}.zip"
 VHOST_URL='isis-qa.naic.org'
 
-# main, function calls
-
-# makes a ZIP archive of the given staging directory, and that makes the bundle archive.
-# create the recipe file and then zip up the
-
-echo "Creating the Deployable ..."
-
-rm -rf /tmp/$BUNDLENAME
-mkdir /tmp/$BUNDLENAME
-# create Java and JBoss archive
-# multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true
-pushd $STAGEDIR/java/$APP_CLUSTER
-zip -r /tmp/$BUNDLENAME/${APP_CLUSTER}.zip .
-popd
-# create HTTP static archive
-pushd $STAGEDIR/http/$VHOST_URL
-zip -r /tmp/$BUNDLENAME/${VHOST_URL}.zip .
-popd
-# create INI configuration archive
-pushd $STAGEDIR/common//
-zip -r /tmp/$BUNDLENAME/module.zip .
-popd
-# artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
-pushd /tmp/$BUNDLENAME
-writeDeploy > /tmp/$BUNDLENAME/deploy.xml
-zip -r $BUNDLE .
-popd
-
-# purge the previous bundle
-echo "Purging previous Bundle ..."
-purgeBundle > $SCRIPTS/purgeBundle.js
-$CLI $OPTS -f $SCRIPTS/purgeBundle.js
-
-# create the bundle from the recipe and archive
-# and then create the bundle definition
-echo "Creating the Bundle ..."
-createBundle > $SCRIPTS/createBundle.js
-$CLI $OPTS -f $SCRIPTS/createBundle.js
-
-# create the drift definition
-echo "Creating Drift Definition ..."
-driftDef > $SCRIPTS/driftDef.js
-$CLI $OPTS -f $SCRIPTS/driftDef.js
-
-# sleep to allow the server to get the first snapshot
-# this only sleeps for a minute, but it really depends on your environment
-echo "Allowing time for drift snapshot.  Please wait ..."
-sleep 1m
-
-# apply drift - lay down audit of changes after this deployment via JON drift of the target resources (EAP or EWS)
-# this pins the new snapshot to the new drift definition
-# and then changes the drift interval to the longer, variable-specified
-
-echo "Creating Snapshot for Drift ..."
-snapshot > $SCRIPTS/snapshot.js
-$CLI $OPTS -f $SCRIPTS/snapshot.js
-
-echo "Exiting Bundle Builder."
-#
-# end of main
 #
 # function declarations:
 
@@ -257,3 +197,63 @@ DriftManager.pinSnapshot(definition.id,0)
 _EOF_
 }
 
+# main, function calls
+
+# makes a ZIP archive of the given staging directory, and that makes the bundle archive.
+# create the recipe file and then zip up the
+
+echo "Creating the Deployable ..."
+
+rm -rf /tmp/$BUNDLENAME
+mkdir /tmp/$BUNDLENAME
+# create Java and JBoss archive
+# multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true
+pushd $STAGEDIR/java/$APP_CLUSTER
+zip -r /tmp/$BUNDLENAME/${APP_CLUSTER}.zip .
+popd
+# create HTTP static archive
+pushd $STAGEDIR/http/$VHOST_URL
+zip -r /tmp/$BUNDLENAME/${VHOST_URL}.zip .
+popd
+# create INI configuration archive
+pushd $STAGEDIR/common//
+zip -r /tmp/$BUNDLENAME/module.zip .
+popd
+# artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
+pushd /tmp/$BUNDLENAME
+writeDeploy > /tmp/$BUNDLENAME/deploy.xml
+zip -r $BUNDLE .
+popd
+
+# purge the previous bundle
+echo "Purging previous Bundle ..."
+purgeBundle > $SCRIPTS/purgeBundle.js
+$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+
+# create the bundle from the recipe and archive
+# and then create the bundle definition
+echo "Creating the Bundle ..."
+createBundle > $SCRIPTS/createBundle.js
+$CLI $OPTS -f $SCRIPTS/createBundle.js
+
+# create the drift definition
+echo "Creating Drift Definition ..."
+driftDef > $SCRIPTS/driftDef.js
+$CLI $OPTS -f $SCRIPTS/driftDef.js
+
+# sleep to allow the server to get the first snapshot
+# this only sleeps for a minute, but it really depends on your environment
+echo "Allowing time for drift snapshot.  Please wait ..."
+sleep 1m
+
+# apply drift - lay down audit of changes after this deployment via JON drift of the target resources (EAP or EWS)
+# this pins the new snapshot to the new drift definition
+# and then changes the drift interval to the longer, variable-specified
+
+echo "Creating Snapshot for Drift ..."
+snapshot > $SCRIPTS/snapshot.js
+$CLI $OPTS -f $SCRIPTS/snapshot.js
+
+echo "Exiting Bundle Builder."
+#
+# end of main

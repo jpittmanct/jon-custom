@@ -81,12 +81,12 @@ BUNDLENAME=$APP_CLUSTER'Bundle'
 GROUPNAME='EAP ('$APP_CLUSTER'-'$REALM_ENV')'
 CONTENT=$APP_CLUSTER'-content.zip'
 # must dynamically increment this value
-BVER='2.6'
+BVER='1'
 BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}.zip"
 VHOST_URL='isis-qa.naic.org'
 
 #  creates the recipe (deploy.xml) which is used in the bundle archive
-deploy() {
+writeDeploy() {
 cat << _EOF_
 <?xml version="1.0"?>
 <project name="NAIC JBoss Deployments" default="main"
@@ -101,6 +101,24 @@ cat << _EOF_
     </rhq:bundle>
 <target name="main" />
 </project>
+
+_EOF_
+}
+
+# purges the Bundle by name so the repository doesn't fill up
+purgeBundle() {
+cat $SAMPLES/util.js $SAMPLES/bundles.js
+cat  << _EOF_
+
+var bundleCrit = new BundleCriteria;
+        bundleCrit.addFilterName("$BUNDLENAME");
+        var bundles = BundleManager.findBundlesByCriteria(bundleCrit);
+
+        if (bundles.empty) {
+                throw "No bundle called";
+        } else { 
+		BundleManager.deleteBundle(bundles.get(0).id)
+	}
 
 _EOF_
 }
@@ -123,6 +141,13 @@ var bundleName = '$BUNDLENAME'
 var groupName = '$GROUPNAME'
 var baseDirName = 'Root File System'
 var deployDir = '$DEPLOYDIR'
+
+var groupCrit = new ResourceGroupCriteria;
+        groupCrit.addFilterName("$GROUPNAME");
+        var groups = ResourceGroupManager.findResourceGroupsByCriteria(groupCrit);
+        if (groups.empty) {
+                throw "No group called";
+        }
 
 // create the new destinition in JON
 createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir)
@@ -190,9 +215,15 @@ zip -r /tmp/$BUNDLENAME/module.zip .
 popd
 # artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file. 
 pushd /tmp/$BUNDLENAME
-deploy > /tmp/$BUNDLENAME/deploy.xml
+writeDeploy > /tmp/$BUNDLENAME/deploy.xml
 zip -r $BUNDLE .
 popd
+
+# purge the previous bundle
+
+echo "Purging previous Bundle ..."
+purgeBundle > $SCRIPTS/purgeBundle.js
+$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition 

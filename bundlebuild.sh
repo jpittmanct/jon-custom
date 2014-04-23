@@ -2,42 +2,43 @@
 #
 # this is a wrapper script for the core functionality of automating JON tasks.
 # core funtionality is automated by standard Javascript for the JON CLI.  those scripts are imbedded here for parameterization
-# the JBoss ON remote API via CLI will be used to create new bundle versions including the upload of new bundle files to the JON server.  The user of JON Server console will then perform the deployment of these new bundle versions to existing or new bundle destinations.
+# the JBoss ON remote API via CLI will be used to create new bundle versions including the upload of new bundle files to the JON server.  
+# this script must be ran on the JON Server, or wherever it's dependencies are at, and pointed to the hostname the resolves to the JON Server's management console
 # variables for the JON CLI
 #
 CLI='/opt/jboss/jon/rhq-remoting-cli-4.4.0.JON312GA/bin/rhq-cli.sh'
 # The manage bundles permission is the only permission available for a role (in JON 3.1.x). This single permission provides its recipient the ability to create, modify, delete, deploy, revert, or undeploy a bundle and its bundle versions.
-OPTS='-u rhqadmin -p rhqadmin'
-# directory to create dynamic scripts
-APP_CLUSTER='isis'
+JONSERVER="localhost"
+USERNAME="rhqadmin"
+PASSWORD="rhqadmin"
+OPTS="-u $USERNAME -p $PASSWORD -s $JONSERVER"
 # these scripts are imported as dependencies to this one
 SCRIPTS='/opt/jboss/jon/scripts'
 SAMPLES='/opt/jboss/jon/rhq-remoting-cli-4.4.0.JON312GA/samples'
 # base directory for deployment target to drift monitor, set some rules about what files or subdirectories to ignore (like log files),
+pushd /stage
+declare -a REALM_ENV=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+popd
 DEPLOYDIR="/www/${REALM_ENV}/"
 DIRTYPE='fileSystem'
 STAGEDIR="/stage/${REALM_ENV}/"
+pushd "$STAGEDIR/java"
+declare -a APP_CLUSTERS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+popd
+pushd "$STAGEDIR/http"
+declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+popd
 # environment and resource variables
-REALM_ENV='qa'
 RESTYPE='Linux'
 RESPLUGIN='Platforms'
 RESNAME='jon_server'
 # variables for drift
-DRIFTNAME="${APP_CLUSTER}Drift"
-DRIFTDESC='drift after bundle deploy'
-EXCLUDE='./logs/'
-PATTERN=
-MODE='normal'
-INTERVAL='3600'
-# variables for Bundles
-BUNDLEDESC="${APP_CLUSTER} bundle for deployment"
-BUNDLENAME="${APP_CLUSTER}Bundle"
-GROUPNAME='EAP ('$APP_CLUSTER'-'$REALM_ENV')'
-CONTENT=$APP_CLUSTER'-content.zip'
-# must dynamically increment this value
-BVER='1'
-BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}.zip"
-VHOST_URL='isis-qa.naic.org'
+#DRIFTNAME="${APP_CLUSTER}Drift"
+#DRIFTDESC='drift after bundle deploy'
+#EXCLUDE='./logs/'
+#PATTERN=
+#MODE='normal'
+#INTERVAL='3600'
 
 #
 # function declarations:
@@ -93,6 +94,8 @@ _EOF_
 
 #  creates the recipe (deploy.xml) which is used in the bundle archive
 writeDeploy() {
+
+BVER='1'
 cat << _EOF_
 <?xml version="1.0"?>
 <project name="NAIC JBoss Deployments" default="main"
@@ -100,8 +103,6 @@ cat << _EOF_
     <rhq:bundle name="$BUNDLENAME" version="$BVER" description="$BUNDLEDESC">
         <rhq:deployment-unit name="drift" manageRootDir="false">
             <rhq:file name="${APP_CLUSTER}.zip" destinationFile="${APP_CLUSTER}/${APP_CLUSTER}.ear">
-            </rhq:file>
-            <rhq:file name="${VHOST_URL}.zip" destinationFile="http/${VHOST_URL}.zip">
             </rhq:file>
         </rhq:deployment-unit>
     </rhq:bundle>
@@ -111,8 +112,38 @@ cat << _EOF_
 _EOF_
 }
 
+createDeployable() {
+
+rm -rf /tmp/$BUNDLENAME
+mkdir /tmp/$BUNDLENAME
+# create Java and JBoss archive
+# multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true
+pushd $STAGEDIR/java/$APP_CLUSTER
+zip -r /tmp/$BUNDLENAME/${APP_CLUSTER}.zip .
+popd
+# create HTTP static archive
+#pushd $STAGEDIR/http/$VHOST_URL
+#zip -r /tmp/$BUNDLENAME/${VHOST_URL}.zip .
+#popd
+# create INI configuration archive
+#pushd $STAGEDIR/common//
+#zip -r /tmp/$BUNDLENAME/module.zip .
+#popd
+# artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
+pushd /tmp/$BUNDLENAME
+writeDeploy > /tmp/$BUNDLENAME/deploy.xml
+zip -r $BUNDLE .
+popd
+}
+
 # purges the Bundle by name so the repository doesn't fill up
+# instead of catenating, you can also just load these dependencies with exec -f
 purgeBundle() {
+
+#
+# variables for Bundles
+# must dynamically increment this value
+
 cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
 
@@ -130,7 +161,14 @@ _EOF_
 }
 
 # concatenates the bundles.js and util.js scripts together, and then appends the calls to create the bundle version and the bundle destination.
+# instead of catenating, you can also just load these dependencies with exec -f
 createBundle() {
+
+#
+# variables for Bundles
+# must dynamically increment this value
+BVER='1'
+
 cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
 
@@ -202,57 +240,46 @@ _EOF_
 # makes a ZIP archive of the given staging directory, and that makes the bundle archive.
 # create the recipe file and then zip up the
 
-echo "Creating the Deployable ..."
-
-rm -rf /tmp/$BUNDLENAME
-mkdir /tmp/$BUNDLENAME
-# create Java and JBoss archive
-# multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true
-pushd $STAGEDIR/java/$APP_CLUSTER
-zip -r /tmp/$BUNDLENAME/${APP_CLUSTER}.zip .
-popd
-# create HTTP static archive
-pushd $STAGEDIR/http/$VHOST_URL
-zip -r /tmp/$BUNDLENAME/${VHOST_URL}.zip .
-popd
-# create INI configuration archive
-pushd $STAGEDIR/common//
-zip -r /tmp/$BUNDLENAME/module.zip .
-popd
-# artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
-pushd /tmp/$BUNDLENAME
-writeDeploy > /tmp/$BUNDLENAME/deploy.xml
-zip -r $BUNDLE .
-popd
+for APP_CLUSTER in ${APP_CLUSTERS} 
+do
+	echo "processing single $APP_CLUSTER"
+	BUNDLENAME="${APP_CLUSTER}_Bundle"
+	BUNDLEDESC="${APP_CLUSTER} bundle for deployment"
+	BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}.zip"
+	GROUPNAME='EAP ('$APP_CLUSTER'-'$REALM_ENV')'
+	echo "Creating the Deployables for $APP_CLUSTER ..."
+	createDeployable
 
 # purge the previous bundle
-echo "Purging previous Bundle ..."
-purgeBundle > $SCRIPTS/purgeBundle.js
-$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+	echo "Purging previous Bundle $BUNDLENAME..."
+	purgeBundle > $SCRIPTS/purgeBundle.js
+	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
-echo "Creating the Bundle ..."
-createBundle > $SCRIPTS/createBundle.js
-$CLI $OPTS -f $SCRIPTS/createBundle.js
+	echo "Creating the Bundle for $APP_CLUSTER ..."
+	createBundle > $SCRIPTS/createBundle.js
+	$CLI $OPTS -f $SCRIPTS/createBundle.js
 
 # create the drift definition
-echo "Creating Drift Definition ..."
-driftDef > $SCRIPTS/driftDef.js
-$CLI $OPTS -f $SCRIPTS/driftDef.js
+	#echo "Creating Drift Definition ..."
+	#driftDef > $SCRIPTS/driftDef.js
+	#$CLI $OPTS -f $SCRIPTS/driftDef.js
 
 # sleep to allow the server to get the first snapshot
 # this only sleeps for a minute, but it really depends on your environment
-echo "Allowing time for drift snapshot.  Please wait ..."
-sleep 1m
+	#echo "Allowing time for drift snapshot.  Please wait ..."
+	#sleep 1m
 
 # apply drift - lay down audit of changes after this deployment via JON drift of the target resources (EAP or EWS)
 # this pins the new snapshot to the new drift definition
 # and then changes the drift interval to the longer, variable-specified
 
-echo "Creating Snapshot for Drift ..."
-snapshot > $SCRIPTS/snapshot.js
-$CLI $OPTS -f $SCRIPTS/snapshot.js
+	#echo "Creating Snapshot for Drift ..."
+	#snapshot > $SCRIPTS/snapshot.js
+	#$CLI $OPTS -f $SCRIPTS/snapshot.js
+
+done
 
 echo "Exiting Bundle Builder."
 #

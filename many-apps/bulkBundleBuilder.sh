@@ -30,6 +30,8 @@ popd
 pushd "$STAGEDIR/http"
 declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
 popd
+BVER=${1}
+echo "my build # is $BVER ***"
 # environment and resource variables
 RESTYPE='Linux'
 RESPLUGIN='Platforms'
@@ -48,7 +50,6 @@ RESNAME='jon_server'
 #  creates the recipe (deploy.xml) which is used in the bundle archive
 writeDeploy() {
 
-BVER='1'
 cat << _EOF_
 <?xml version="1.0"?>
 <project name="NAIC JBoss Deployments" default="main"
@@ -99,7 +100,6 @@ createBundle() {
 #
 # variables for Bundles
 # must dynamically increment this value
-BVER='1'
 
 cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
@@ -252,9 +252,9 @@ do
 	popd
 
 # purge the previous bundle
-	echo "Purging previous Bundle ${BUNDLENAME}..."
-	purgeBundle > $SCRIPTS/purgeBundle.js
-	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+#	echo "Purging previous Bundle ${BUNDLENAME}..."
+#	purgeBundle > $SCRIPTS/purgeBundle.js
+#	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
@@ -318,9 +318,9 @@ do
 	popd
 
 # purge the previous bundle
-	echo "Purging previous Bundle ${BUNDLENAME}..."
-	purgeBundle > $SCRIPTS/purgeBundle.js
-	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+#	echo "Purging previous Bundle ${BUNDLENAME}..."
+#	purgeBundle > $SCRIPTS/purgeBundle.js
+#	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition

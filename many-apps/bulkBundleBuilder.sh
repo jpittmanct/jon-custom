@@ -6,16 +6,17 @@
 # this script must be ran on the JON Server, or wherever it's dependencies are at, and pointed to the hostname the resolves to the JON Server's management console
 # variables for the JON CLI
 #
-JON_HOME='/opt/jboss/jon-server/naic-deployment-process'
+JON_HOME='/opt/jboss/jon/'
 CLI="$JON_HOME/rhq-remoting-cli-4.4.0.JON312GA/bin/rhq-cli.sh"
 # these scripts are imported as dependencies to this one
 SCRIPTS="$JON_HOME/scripts"
+mkdir $SCRIPTS
 SAMPLES="$JON_HOME/rhq-remoting-cli-4.4.0.JON312GA/samples"
 TMP="/tmp/jpittman"
 # The manage bundles permission is the only permission available for a role (in JON 3.1.x). This single permission provides its recipient the ability to create, modify, delete, deploy, revert, or undeploy a bundle and its bundle versions.
-JONSERVER="jon-qa.naic.org"
+JONSERVER="localhost"
 USERNAME="rhqadmin"
-PASSWORD="nogalwc1"
+PASSWORD="rhqadmin"
 OPTS="-u $USERNAME -p $PASSWORD -s $JONSERVER"
 # base directory for deployment target to drift monitor, set some rules about what files or subdirectories to ignore (like log files),
 pushd '/stage'
@@ -56,6 +57,11 @@ cat << _EOF_
         <rhq:deployment-unit name="drift" manageRootDir="false">
             <rhq:archive name="${ARCHIVE}" exploded="true">
             </rhq:archive>
+	    <rhq:ignore>
+	     	 	<rhq:fileset>
+		        <include name="*"/>
+			</rhq:fileset>
+	    </rhq:ignore>
         </rhq:deployment-unit>
     </rhq:bundle>
 <target name="main" />

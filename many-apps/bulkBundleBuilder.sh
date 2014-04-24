@@ -104,15 +104,15 @@ var path = '$BUNDLE'
 createBundleVersion(path)
 
 // set all of the variables for the bundle destination
-var destinationName = '${GROUPNAME}'
-var description = '${BUNDLEDESC}'
-var bundleName = '${BUNDLENAME}'
-var groupName = '${GROUPNAME}'
+var destinationName = '$GROUPNAME'
+var description = '$BUNDLEDESC'
+var bundleName = '$BUNDLENAME'
+var groupName = '$GROUPNAME'
 var baseDirName = 'Root File System'
 var deployDir = '$DEPLOYDIR'
 
 var groupCrit = new ResourceGroupCriteria;
-        groupCrit.addFilterName("${GROUPNAME}");
+        groupCrit.addFilterName('$GROUPNAME');
         var groups = ResourceGroupManager.findResourceGroupsByCriteria(groupCrit);
         if (groups.empty) {
                 throw "No group called";
@@ -275,7 +275,7 @@ do
 	BUNDLENAME="${VHOST_URL}"
 	BUNDLEDESC="${VHOST_URL} bundle for deployment"
 	BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
-	GROUPNAME='EWS ('$VHOST_URL')'
+	GROUPNAME="EWS ($VHOST_URL)"
 	ARCHIVE=${VHOST_URL}.zip
 	DEPLOYDIR="/www/${REALM_ENV}/http/$VHOST_URL/"
 	echo "Creating the Deployables for $VHOST_URL ..."

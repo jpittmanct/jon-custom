@@ -6,15 +6,16 @@
 # this script must be ran on the JON Server, or wherever it's dependencies are at, and pointed to the hostname the resolves to the JON Server's management console
 # variables for the JON CLI
 #
-JON_HOME='/opt/jboss/jon/'
+JON_HOME='/opt/jboss/jon-server/naic-deployment-process'
 CLI="$JON_HOME/rhq-remoting-cli-4.4.0.JON312GA/bin/rhq-cli.sh"
 # these scripts are imported as dependencies to this one
 SCRIPTS="$JON_HOME/scripts"
 SAMPLES="$JON_HOME/rhq-remoting-cli-4.4.0.JON312GA/samples"
+TMP="/tmp/jpittman"
 # The manage bundles permission is the only permission available for a role (in JON 3.1.x). This single permission provides its recipient the ability to create, modify, delete, deploy, revert, or undeploy a bundle and its bundle versions.
-JONSERVER="localhost"
+JONSERVER="jon-qa.naic.org"
 USERNAME="rhqadmin"
-PASSWORD="rhqadmin"
+PASSWORD="nogalwc1"
 OPTS="-u $USERNAME -p $PASSWORD -s $JONSERVER"
 # base directory for deployment target to drift monitor, set some rules about what files or subdirectories to ignore (like log files),
 pushd '/stage'
@@ -218,24 +219,29 @@ for APP_CLUSTER in ${APP_CLUSTERS}
 do
 	BUNDLENAME="${APP_CLUSTER}"
 	BUNDLEDESC="${APP_CLUSTER} bundle for deployment"
-	BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
+	BUNDLE="$TMP/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
 	GROUPNAME="EAP ($APP_CLUSTER-$REALM_ENV-jboss)"
 	ARCHIVE="${APP_CLUSTER}.zip"
-	DEPLOYDIR='/opt/jboss/eap/jboss-eap-6.1/standalone/'
+	DEPLOYDIR='/www/${REALM_ENV}/${APP_CLUSTER}/deployments/'
 	echo "Creating the Deployables for $APP_CLUSTER ..."
-	rm -rf /tmp/${BUNDLENAME}
-	mkdir /tmp/${BUNDLENAME}
+	rm -rf $TMP/${BUNDLENAME}
+	mkdir $TMP/${BUNDLENAME}
 
 # create Java and JBoss archive
 # multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true
 #
 	pushd $STAGEDIR/java/$APP_CLUSTER
-	zip -r /tmp/${BUNDLENAME}/${ARCHIVE} .
+	if [ -z `find . -type f` ]; then
+                echo "no staged files so SKIP"
+                popd
+                continue
+        fi
+	zip -r $TMP/${BUNDLENAME}/${ARCHIVE} .
 	popd
 
 # artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
-	pushd /tmp/${BUNDLENAME}
-	writeDeploy > /tmp/${BUNDLENAME}/deploy.xml
+	pushd $TMP/${BUNDLENAME}
+	writeDeploy > $TMP/${BUNDLENAME}/deploy.xml
 	zip -r $BUNDLE .
 	popd
 
@@ -274,25 +280,34 @@ for VHOST_URL in ${VHOST_URLS}
 do
 	BUNDLENAME="${VHOST_URL}"
 	BUNDLEDESC="${VHOST_URL} bundle for deployment"
-	BUNDLE="/tmp/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
-	GROUPNAME="EWS ($VHOST_URL)"
+	BUNDLE="$TMP/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
+	if [[ $VHOST_URL == *.nipr.com ]]; then
+		GROUPNAME="EWS (NIPR)"
+	else
+		GROUPNAME="EWS (NAIC)"
+	fi
 	ARCHIVE=${VHOST_URL}.zip
 	DEPLOYDIR="/www/${REALM_ENV}/http/$VHOST_URL/"
 	echo "Creating the Deployables for $VHOST_URL ..."
-	rm -rf /tmp/${BUNDLENAME}
-	mkdir /tmp/${BUNDLENAME}
+	rm -rf $TMP/${BUNDLENAME}
+	mkdir $TMP/${BUNDLENAME}
 
 # create HTTP static archive
 	pushd $STAGEDIR/http/$VHOST_URL
-	zip -r /tmp/${BUNDLENAME}/${ARCHIVE} .
+	if [ -z `find . -type f` ]; then 
+		echo "no staged files so SKIP"
+		popd
+		continue
+	fi
+	zip -r $TMP/${BUNDLENAME}/${ARCHIVE} .
 	popd
 # create INI configuration archive
-	pushd $STAGEDIR/common/
-	zip -r /tmp/${BUNDLENAME}/module.zip .
-	popd
+#	pushd $STAGEDIR/common/
+#	zip -9 -r /$TMP/${BUNDLENAME}/module.zip .
+#	popd
 # artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
-	pushd /tmp/${BUNDLENAME}
-	writeDeploy > /tmp/${BUNDLENAME}/deploy.xml
+	pushd $TMP/${BUNDLENAME}
+	writeDeploy > $TMP/${BUNDLENAME}/deploy.xml
 	zip -r $BUNDLE .
 	popd
 

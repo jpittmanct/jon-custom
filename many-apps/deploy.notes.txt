@@ -1,0 +1,37 @@
+#
+# the JBoss ON remote API via CLI will be used to create new bundle versions including the upload of new bundle files to the JON server.  The user of JON Server console will then perform the deployment of these new bundle versions to existing or new bundle destinations.  The bundle scanner and builder will use Java Scripting to interface with the JON API.
+#
+
+# The manage bundles permission is the only permission available for a role (in JON 3.1.x). This single permission provides its recipient the ability to create, modify, delete, deploy, revert, or undeploy a bundle and its bundle versions.
+
+# scheduling - you can use any scheduling system to execute provisioning tasks using the JBoss ON Remote Client API. 
+
+# purging previous deployments ... bundle deployment for the destination can not be deleted from the database because it is referenced by the bundle deployment that is marked live. You can only delete a bundle. You can not delete individual bundle versions. 
+
+// search for the content resource by name
+criteria = new ResourceCriteria();
+criteria.addFilterName('updatedApp.ear');
+var res = ResourceManager.findResourcesByCriteria(criteria);
+
+ResourceFactoryManager.deleteResource(res.get(0).id)
+
+# artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file. 
+
+# multiple deployment artifact support - A WAR that contains WARs at its root level is not a valid web application archive and the child WARs will not be read. Additionally, if the provisioning bundle contains multiple WARs and the exploded attribute of rhq:archive is set to true and the destination is a WAR directory, the result is that all three WARs will be merged into one. When deploying multiple web application archive (WAR) files you must do one of the following: 1) put each WAR into its own provisioning bundle, 2) put all the WARs into an enterprise application archive (EAR), 3) put all the WARs at the root of the bundle archive and specify a deployment destination that ends with .ear. For option #3, 3 WARs at its root level, specify the destination directory as my-app.ear instead of my-app.war and be sure that the exploded attribute of rhq:archive is set to false. For option #2, put the 3 WARs into a new archive named my-app.ear and place it into the bundle instead of the 3 separate WARs and set the exploded attribute of rhq:archive to true 
+
+# create bundle based on source zip file
+
+// create the test bundle version
+   var distributionFile = new java.io.File("./src/test/resources/cli-test-bundle.zip");
+      distributionFile = new java.io.File(distributionFile.getAbsolutePath());
+         var testBundleVersion = BundleManager.createBundleVersionViaFile( distributionFile )
+
+# audits in progress - Status for a BundleDeployment is available from the getStatus() method. To retrieve the audit messages associated with the deployment of the bundle to a destination, you will need to retrieve the bundleResourceDeploymentHistories from each respective BundleResourceDeployment in the destination.  This would need to be performed for each BundleResourceDeployment in the destination's resource group.
+
+var bundleResDeploymentCrit = new BundleResourceDeploymentCriteria();
+bundleResDeploymentCrit.addFilterBundleDeploymentId(bundleDeployment.getId());
+bundleResDeploymentCrit.fetchHistories(true);
+var resourceDeployment = BundleManager.findBundleResourceDeploymentsByCriteria(bundleResDeploymentCrit).get(0);
+var histories = resourceDeployment.getBundleResourceDeploymentHistories();
+
+# apply drift - lay down audit of changes after this deployment via JON drift of the target resources (EAP or EWS)

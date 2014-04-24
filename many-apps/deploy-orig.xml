@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<!--main deployer project -->
+<project name="JBoss_JavaApp_Deployer" default="main" xmlns:rhq="antlib:org.rhq.bundle">    
+	 <!-- environment target; these will be populated statically or via script only -->
+   <rhq:bundle name="JavaApp Deployer" version="1.0" description="Deploy java applications">
+   	<!-- user parameterized values; these will prompt for input on the GUI or CLI -->
+	<!-- the paramter rhq.deploy.dir is set by the system as a required value at the beginning of the deploy, it should always be /www -->
+   	 <rhq:input-property name="env.realm" description="Realm environment" required="true" defaultValue="qa" type="string"/>
+   	 <rhq:input-property name="container.app" description="Java application" required="true" defaultValue="isis" type="string"/>
+	 <rhq:input-property name="jboss.home" description="JBoss Home" required="true" defaultValue="jboss-eap-6.1" type="string"/>
+	 <rhq:input-property name="common.deploy" description="Deploy Common?" required="true" defaultValue="false" type="boolean"/>
+	 <rhq:input-property name="staging.dir" description="Staging directory" required="true" defaultValue="stage" type="directory"/>
+	 <rhq:input-property name="target.dir" description="Target directory" required="true" defaultValue="www" type="directory"/>
+	 
+
+	<!-- a deployable in this project, that does not managed all directories (so can preverse the current directories that are not touched by this Bunble -->
+	<!-- backups of this deployable will be kept under .rhqdeployments -->
+        <rhq:deployment-unit name="java-app"  manageRootDir="false" preinstallTarget="verify_target" postinstallTarget="verify_deploy">
+		<!-- test whether user indicated Common deploy -->
+		<!--
+		<if>
+			<equals arg1="${common.deploy}" arg2="true" />
+		<then>
+		    <copy todir="${rhq.deploy.dir}${target.dir}/${realm}/modules/org/naic/ini/${app}/common/main" overwrite="true">
+		       <fileset dir="${rhq.deploy.dir}${staging}/${realm}/common/"/>
+		    </copy>
+		</then>
+		</if>
+		-->
+
+		<copy todir="${rhq.deploy.dir}${target.dir}/${realm}/${app}/deployments" overwrite="true">
+		  <fileset dir="${rhq.deploy.dir}${staging}/${realm}/java/${app}/"/>
+		</copy>
+
+	    <!-- these filesets will be skipped by the deployer and preserved in tact IF THEY DO NOT EXIST IN THIS BUNDLE so never created a Bunle image with these files -->
+	    <rhq:ignore>
+	        <rhq:fileset>
+		        <include name="logs/*.log"/>
+		 </rhq:fileset>
+	    </rhq:ignore>
+        </rhq:deployment-unit>
+    </rhq:bundle>
+
+    <target name="main">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:Entered Main" message="message:Entered Main"> 
+	</rhq:audit>
+    </target>
+
+    <target name="verify_target">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:Verifying target directory..." message="message:Verifying target directory"> 
+	</rhq:audit>
+	 <condition property="target.dir.exists">
+	    <available file="${rhq.deploy.dir}${target.dir}/${realm}/${app}/deployments" type="dir"/>
+	 </condition>
+        <fail message="JBoss home server profile directory ${rhq.deploy.dir}/${jboss.home}/standalone not present" unless="${rhq.deploy.dir}/${jboss.home}/standalone.dir.present"/>
+    </target>
+
+    <target name="verify_deploy">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:Verifying deployment..." message="message:Verifying deployment"> 
+	</rhq:audit>
+        <echo message="Verifying deployment directory..."/>
+        <waitfor maxwait="5" maxwaitunit="second" timeoutproperty="deploy.file.timeout">
+          <available file="${rhq.deploy.dir}/{$jboss.home}/standalone/deploy/${app}/" type="dir"/>
+        </waitfor>
+        <fail message="${rhq.deploy.dir}: application deployment failure" if="deploy.file.timeout" status="6"/>
+    </target>
+
+</project>
+

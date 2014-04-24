@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<project name="eap-5-1-1-bundle-vanilla" default="main" xmlns:rhq="antlib:org.rhq.bundle">
+	<rhq:bundle name="EAP 5.1.1-vanilla-fail" version="2.0" description="Bundle of EAP 5.1.1 vanilla">
+		<rhq:input-property name="port-set"
+			description="This is the ports set to use for JBoss, defined as: default, 01, 02, 03 etc..."
+			required="true" defaultValue="default" type="string" />
+		<rhq:input-property name="instance"
+			description="This is the instance whose port set will be changed: all, production, default, web, standard"
+			required="true" defaultValue="all" type="string" />
+		<rhq:input-property name="start-server"
+			description="This specifies if the server should be started after deployment"
+			required="false" defaultValue="false" type="boolean" />
+		<rhq:input-property name="jmx-admin-password"
+			description="This specifies the password to be used for the admin user to log into the JMX console"
+			required="false" defaultValue="admin" type="string" />			
+		<rhq:deployment-unit name="appserver"
+			preinstallTarget="preinstall" postinstallTarget="postinstall">
+			<rhq:archive name="jboss-eap-5.1.1.zip" />
+		</rhq:deployment-unit>
+	</rhq:bundle>
+	
+	<target name="main" />
+	<target name="preinstall">
+		<echo>Deploying EAP 5.1.1 vanilla bundle to ${rhq.deploy.dir}</echo>
+		<property name="preinstallTargetExecuted" value="true" />
+	</target>
+	<target name="postinstall">
+		<property name="jboss-as" value="${rhq.deploy.dir}/jboss-eap-5.1/jboss-as" />
+		<property name="jboss-user" value="jboss" />
+		<property name="jmx-admin-password" value="jbadmin" />
+		<echo>Updating JMX users admin password to ${jmx-admin-password}...</echo>
+		<replace file="${jboss-as}/server/${instance}/conf/props/jmx-console-users.properties"
+			token="# admin=admin" value="admin=${jmx-admin-password}"/>
+				
+		<echo>Setting port attribute for ${instance} to ports-${port-set}.</echo>
+		<replace file="${jboss-as}/server/${instance}/conf/bindingservice.beans/META-INF/bindings-jboss-beans.xml"
+			token="jboss.service.binding.set:ports-default" value="jboss.service.binding.set:ports-${port-set}"/>
+		
+		<echo>Done deploying EAP 5.1.1 vanilla bundle to ${rhq.deploy.dir}.</echo>
+			
+		<echo>Changing permissions, owner and group to ${jboss-user}.</echo>			
+		<chgrp group="${jboss-user}" type="both">
+		  <fileset dir="${rhq.deploy.dir}" />
+		</chgrp>
+		
+		<chown owner="${jboss-user}" type="both">
+		  <fileset dir="${rhq.deploy.dir}" />
+		</chown>
+		
+		<chmod dir="${jboss-as}/bin" perm="755" includes="**/*.sh"/>
+		
+		<property name="postinstallTargetExecuted" value="true" />
+	</target>
+</project>

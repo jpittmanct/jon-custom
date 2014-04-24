@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!--main deployer project -->
+<project name="JBoss_JavaApp_Deployer" default="main" xmlns:rhq="antlib:org.rhq.bundle">    
+
+<rhq:bundle name="JavaApp Deployer" version="1.0" description="Deploy java applications">
+        <!-- user parameterized values; these will prompt for input on the GUI or CLI -->
+	<!-- the paramter rhq.deploy.dir is set by the system as a required value at the beginning of the deploy, it should always be /www -->
+	<rhq:input-property name="env.realm" description="Realm environment" required="true" defaultValue="qa" type="string"/>
+	<rhq:input-property name="container.app" description="Java application" required="true" defaultValue="isis" type="string"/>
+	<rhq:input-property name="jboss.home" description="JBoss Home" required="true" defaultValue="jboss-eap-6.1" type="string"/>
+	<rhq:input-property name="common.deploy" description="Deploy Common?" required="true" defaultValue="false" type="boolean"/>
+	<rhq:input-property name="staging.dir" description="Staging directory" required="true" defaultValue="stage" type="directory"/>
+	<rhq:input-property name="target.dir" description="Target directory" required="true" defaultValue="www" type="directory"/>
+
+        <rhq:deployment-unit name="java-app"  manageRootDir="false" preinstallTarget="verify_target" postinstallTarget="verify_deploy">
+        </rhq:deployment-unit>
+
+</rhq:bundle>
+<target name="main">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:" message="Entered Main"> 
+	</rhq:audit>
+</target>
+
+<target name="verify_source">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:" message="Verifying target directory"> 
+	</rhq:audit>
+	 <condition property="staging.dir.exists">
+	    <available file="${rhq.deploy.dir}${staging.dir}/${env.realm}/${container.app}" type="dir"/>
+	 </condition>
+        <fail message="staging directory ${rhq.deploy.dir}${staging.dir}/${env.realm}/${container.app} not present" unless="staging.dir.exists"/>
+</target>
+
+<target name="verify_target">
+	<rhq:audit status="SUCCESS" action="Task" info="INFO:" message="Verifying deployment"> 
+	</rhq:audit>
+        <waitfor maxwait="5" maxwaitunit="second" timeoutproperty="deploy.file.timeout">
+          <available file="${rhq.deploy.dir}${target.dir}/${env.realm}/${container.app}/deployments" type="dir"/>
+        </waitfor>
+        <fail message="JBoss deployment target timed out while verifying: ${rhq.deploy.dir}${target.dir}/${env.realm}/${container.app}/deployments" if="deploy.file.timeout" status="6"/>
+</target>
+
+</project>
+

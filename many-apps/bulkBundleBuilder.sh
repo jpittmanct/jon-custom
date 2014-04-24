@@ -43,55 +43,6 @@ RESNAME='jon_server'
 #
 # function declarations:
 
-# create JON CLI with JS for Drift mgmt
-driftDef() {
-cat <<_EOF_
-
-//set the resource type
-var resType = ResourceTypeManager.getResourceTypeByNameAndPlugin("$RESTYPE","$RESPLUGIN");
-
-//get the resource to associate with the drift definition
-rcrit = ResourceCriteria()
-rcrit.addFilterResourceTypeName("$RESTYPE")
-rcrit.addFilterName("$RESNAME")
-var resources = ResourceManager.findResourcesByCriteria(rcrit)
-var res = resources.get(0)
-
-//get the default template for the resource type
-criteria = DriftDefinitionTemplateCriteria()
-criteria.addFilterResourceTypeId(resType.id)
-templates = DriftTemplateManager.findTemplatesByCriteria(criteria)
-template = templates.get(0)
-
-//create a new drift definition instance, based on the template
-definition = template.createDefinition()
-
-//set the drift definition configuration options
-definition.resource = res
-definition.name = '$DRIFTNAME'
-definition.description = '$DRIFTDESC'
-definition.setAttached(false) // this is false so that template changes don't affect the definition
-
-// this is set low to trigger an early initial detection run
-definition.setInterval(30)
-var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR')
-definition.basedir = basedir
-
-// there can be multiple exclude statements made, as desired
-var f = new Filter("$EXCLUDE", "$PATTERN") // location, pattern
-definition.addExclude(f)
-
-//this defaults to normal, which means that any changes will
-// trigger an alert. plannedChanges is the other option, which 
-// disables alerting for drift changes.
-definition.setDriftHandlingMode(DriftConfigurationDefinition.DriftHandlingMode.valueOf('$MODE'))
-
-//apply the new definition to the resource
-DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition)
-
-_EOF_
-}
-
 #  creates the recipe (deploy.xml) which is used in the bundle archive
 writeDeploy() {
 
@@ -169,6 +120,55 @@ var groupCrit = new ResourceGroupCriteria;
 
 // create the new destinition in JON
 createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir)
+
+_EOF_
+}
+
+# create JON CLI with JS for Drift mgmt
+driftDef() {
+cat <<_EOF_
+
+//set the resource type
+var resType = ResourceTypeManager.getResourceTypeByNameAndPlugin("$RESTYPE","$RESPLUGIN");
+
+//get the resource to associate with the drift definition
+rcrit = ResourceCriteria()
+rcrit.addFilterResourceTypeName("$RESTYPE")
+rcrit.addFilterName("$RESNAME")
+var resources = ResourceManager.findResourcesByCriteria(rcrit)
+var res = resources.get(0)
+
+//get the default template for the resource type
+criteria = DriftDefinitionTemplateCriteria()
+criteria.addFilterResourceTypeId(resType.id)
+templates = DriftTemplateManager.findTemplatesByCriteria(criteria)
+template = templates.get(0)
+
+//create a new drift definition instance, based on the template
+definition = template.createDefinition()
+
+//set the drift definition configuration options
+definition.resource = res
+definition.name = '$DRIFTNAME'
+definition.description = '$DRIFTDESC'
+definition.setAttached(false) // this is false so that template changes don't affect the definition
+
+// this is set low to trigger an early initial detection run
+definition.setInterval(30)
+var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR')
+definition.basedir = basedir
+
+// there can be multiple exclude statements made, as desired
+var f = new Filter("$EXCLUDE", "$PATTERN") // location, pattern
+definition.addExclude(f)
+
+//this defaults to normal, which means that any changes will
+// trigger an alert. plannedChanges is the other option, which
+// disables alerting for drift changes.
+definition.setDriftHandlingMode(DriftConfigurationDefinition.DriftHandlingMode.valueOf('$MODE'))
+
+//apply the new definition to the resource
+DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition)
 
 _EOF_
 }
@@ -306,6 +306,24 @@ do
 	echo "Creating the Bundle for $VHOST_URL ..."
 	createBundle > $SCRIPTS/createBundle.js
 	$CLI $OPTS -f $SCRIPTS/createBundle.js
+
+# create the drift definition
+#echo "Creating Drift Definition ..."
+#driftDef > $SCRIPTS/driftDef.js
+#$CLI $OPTS -f $SCRIPTS/driftDef.js
+
+# sleep to allow the server to get the first snapshot
+# this only sleeps for a minute, but it really depends on your environment
+#echo "Allowing time for drift snapshot.  Please wait ..."
+#sleep 1m
+
+# apply drift - lay down audit of changes after this deployment via JON drift of the target resources (EAP or EWS)
+# this pins the new snapshot to the new drift definition
+# and then changes the drift interval to the longer, variable-specified
+
+#echo "Creating Snapshot for Drift ..."
+#snapshot > $SCRIPTS/snapshot.js
+#$CLI $OPTS -f $SCRIPTS/snapshot.js
 
 done
 

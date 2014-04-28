@@ -31,7 +31,6 @@ pushd "$STAGEDIR/http"
 declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
 popd
 BVER=${1}
-echo "my build # is $BVER ***"
 # environment and resource variables
 RESTYPE='Linux'
 RESPLUGIN='Platforms'
@@ -81,15 +80,18 @@ purgeBundle() {
 cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
 
-var bundleCrit = new BundleCriteria;
-        bundleCrit.addFilterName("${BUNDLENAME}");
-        var bundles = BundleManager.findBundlesByCriteria(bundleCrit);
+var bundleCrit = new BundleVersionCriteria;
+bundleCrit.addFilterBundleName("${BUNDLENAME}");
+var bundleVersions = BundleManager.findBundleVersionsByCriteria(bundleCrit);
+var deleteBundleIfEmpty = true;
 
-        if (bundles.empty) {
-                throw "No bundle called";
-        } else { 
-		BundleManager.deleteBundle(bundles.get(0).id)
-	}
+if ( bundleVersions != null ) { 
+        if ( bundleVersions.size() > 3 ) {
+			bundleVersion = bundleVersions.get(0);
+                        println("Deleting Version: " + bundleVersion.version + "   " + "ID: " + bundleVersion.id);
+			BundleManager.deleteBundleVersion(bundleVersion.id, deleteBundleIfEmpty);
+	} else { println("No versions to delete"); }
+}
 
 _EOF_
 }
@@ -105,18 +107,18 @@ cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
 
 // set the location of the bundle archive
-var path = '$BUNDLE'
+var path = '$BUNDLE';
 
 // create the bundle version in JON
-createBundleVersion(path)
+createBundleVersion(path);
 
 // set all of the variables for the bundle destination
-var destinationName = '$GROUPNAME'
-var description = '$BUNDLEDESC'
-var bundleName = '$BUNDLENAME'
-var groupName = '$GROUPNAME'
-var baseDirName = 'Root File System'
-var deployDir = '$DEPLOYDIR'
+var destinationName = '$GROUPNAME';
+var description = '$BUNDLEDESC';
+var bundleName = '$BUNDLENAME';
+var groupName = '$GROUPNAME';
+var baseDirName = 'Root File System';
+var deployDir = '$DEPLOYDIR';
 
 var groupCrit = new ResourceGroupCriteria;
         groupCrit.addFilterName('$GROUPNAME');
@@ -126,7 +128,7 @@ var groupCrit = new ResourceGroupCriteria;
         }
 
 // create the new destinition in JON
-createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir)
+createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir);
 
 _EOF_
 }
@@ -139,43 +141,45 @@ cat <<_EOF_
 var resType = ResourceTypeManager.getResourceTypeByNameAndPlugin("$RESTYPE","$RESPLUGIN");
 
 //get the resource to associate with the drift definition
-rcrit = ResourceCriteria()
-rcrit.addFilterResourceTypeName("$RESTYPE")
-rcrit.addFilterName("$RESNAME")
-var resources = ResourceManager.findResourcesByCriteria(rcrit)
-var res = resources.get(0)
+rcrit = ResourceCriteria();
+rcrit.addFilterResourceTypeName("$RESTYPE");
+rcrit.addFilterName("$RESNAME");
+var resources = ResourceManager.findResourcesByCriteria(rcrit);
+var res = resources.get(0);
 
 //get the default template for the resource type
-criteria = DriftDefinitionTemplateCriteria()
-criteria.addFilterResourceTypeId(resType.id)
-templates = DriftTemplateManager.findTemplatesByCriteria(criteria)
-template = templates.get(0)
+criteria = DriftDefinitionTemplateCriteria();
+criteria.addFilterResourceTypeId(resType.id);
+templates = DriftTemplateManager.findTemplatesByCriteria(criteria);
+template = templates.get(0);
 
 //create a new drift definition instance, based on the template
-definition = template.createDefinition()
+definition = template.createDefinition();
 
 //set the drift definition configuration options
-definition.resource = res
-definition.name = '$DRIFTNAME'
-definition.description = '$DRIFTDESC'
-definition.setAttached(false) // this is false so that template changes don't affect the definition
+definition.resource = res;
+definition.name = '$DRIFTNAME';
+definition.description = '$DRIFTDESC';
+// this is false so that template changes don't affect the definition
+definition.setAttached(false);
 
 // this is set low to trigger an early initial detection run
-definition.setInterval(30)
-var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR')
-definition.basedir = basedir
+definition.setInterval(30);
+var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR');
+definition.basedir = basedir;
 
 // there can be multiple exclude statements made, as desired
-var f = new Filter("$EXCLUDE", "$PATTERN") // location, pattern
-definition.addExclude(f)
+// location, pattern
+var f = new Filter("$EXCLUDE", "$PATTERN");
+definition.addExclude(f);
 
 //this defaults to normal, which means that any changes will
 // trigger an alert. plannedChanges is the other option, which
 // disables alerting for drift changes.
-definition.setDriftHandlingMode(DriftConfigurationDefinition.DriftHandlingMode.valueOf('$MODE'))
+definition.setDriftHandlingMode(DriftConfigurationDefinition.DriftHandlingMode.valueOf('$MODE'));
 
 //apply the new definition to the resource
-DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition)
+DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition);
 
 _EOF_
 }
@@ -184,35 +188,36 @@ _EOF_
 snapshot() {
 cat <<- _EOF_
 //find the resource
-rcrit = ResourceCriteria()
-rcrit.addFilterResourceTypeName("$RESTYPE")
-rcrit.addFilterName("$RESNAME")
-var resources = ResourceManager.findResourcesByCriteria(rcrit)
-var res = resources.get(0)
+rcrit = ResourceCriteria();
+rcrit.addFilterResourceTypeName("$RESTYPE");
+rcrit.addFilterName("$RESNAME");
+var resources = ResourceManager.findResourcesByCriteria(rcrit);
+var res = resources.get(0);
 
 //find the new drift definition
-criteria = DriftDefinitionCriteria()
-criteria.addFilterName('$DRIFTNAME')
-criteria.addFilterResourceIds(res.id)
-def = DriftManager.findDriftDefinitionsByCriteria(criteria)
-definition = def.get(0)
-definition.setInterval($INTERVAL)
+criteria = DriftDefinitionCriteria();
+criteria.addFilterName('$DRIFTNAME');
+criteria.addFilterResourceIds(res.id);
+def = DriftManager.findDriftDefinitionsByCriteria(criteria);
+definition = def.get(0);
+definition.setInterval($INTERVAL);
 
 // it is necessary to redefine the complete configuration when you're 
 // resetting the interval or the other values will be overwritten with default 
 // or set to null
-var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR')
-definition.basedir = basedir
-definition.name = '$DRIFTNAME'
+var basedir = new DriftDefinition.BaseDirectory(DriftConfigurationDefinition.BaseDirValueContext.valueOf('$DIRTYPE'),'$DEPLOYDIR');
+definition.basedir = basedir;
+definition.name = '$DRIFTNAME';
 // there can be multiple exclude statements made, as desired
-var f = new Filter("$EXCLUDE", "$PATTERN") // location, pattern
-definition.addExclude(f)
-DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition)
+// location, pattern
+var f = new Filter("$EXCLUDE", "$PATTERN");
+definition.addExclude(f);
+DriftManager.updateDriftDefinition(EntityContext.forResource(res.id),definition);
 
 // pin to the initial snapshot, which is version 0
 // this gets the most recent snapshot if that is the better version to use
 // snap = DriftManager.getSnapshot(DriftSnapshotRequest(definition.id))
-DriftManager.pinSnapshot(definition.id,0)
+DriftManager.pinSnapshot(definition.id,0);
 _EOF_
 }
 
@@ -252,15 +257,15 @@ do
 	popd
 
 # purge the previous bundle
-#	echo "Purging previous Bundle ${BUNDLENAME}..."
-#	purgeBundle > $SCRIPTS/purgeBundle.js
-#	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+	echo "Purging old Bundle versions: ${BUNDLENAME}..."
+	purgeBundle > $SCRIPTS/purgeBundle.js
+	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
-	echo "Creating the Bundle for $APP_CLUSTER ..."
-	createBundle > $SCRIPTS/createBundle.js
-	$CLI $OPTS -f $SCRIPTS/createBundle.js
+#	echo "Creating the Bundle for $APP_CLUSTER ..."
+#	createBundle > $SCRIPTS/createBundle.js
+#	$CLI $OPTS -f $SCRIPTS/createBundle.js
 
 # create the drift definition
 	#echo "Creating Drift Definition ..."
@@ -318,15 +323,15 @@ do
 	popd
 
 # purge the previous bundle
-#	echo "Purging previous Bundle ${BUNDLENAME}..."
-#	purgeBundle > $SCRIPTS/purgeBundle.js
-#	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
+	echo "Purging old Bundle versions: ${BUNDLENAME}..."
+	purgeBundle > $SCRIPTS/purgeBundle.js
+	$CLI $OPTS -f $SCRIPTS/purgeBundle.js
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
-	echo "Creating the Bundle for $VHOST_URL ..."
-	createBundle > $SCRIPTS/createBundle.js
-	$CLI $OPTS -f $SCRIPTS/createBundle.js
+#	echo "Creating the Bundle for $VHOST_URL ..."
+#	createBundle > $SCRIPTS/createBundle.js
+#	$CLI $OPTS -f $SCRIPTS/createBundle.js
 
 # create the drift definition
 #echo "Creating Drift Definition ..."

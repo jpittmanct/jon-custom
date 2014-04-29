@@ -30,17 +30,25 @@ if [ ! -d "${SCRIPTS}" ]
 fi
 SAMPLES="$JON_HOME/rhq-remoting-cli-4.4.0.JON312GA/samples"
 # base directory for deployment target to drift monitor, set some rules about what files or subdirectories to ignore (like log files),
-pushd "${STAGE_MOUNT}" 
-declare -a REALM_ENV=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
-popd
+if [ -d "${STAGE_MOUNT}" ]
+	then
+	pushd "${STAGE_MOUNT}" 
+	declare -a REALM_ENV=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+	popd 
+else exit 0
+fi
 DIRTYPE='fileSystem'
 STAGEDIR="/${STAGE_MOUNT}/${REALM_ENV}/"
-pushd "$STAGEDIR/java"
-declare -a APP_CLUSTERS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
-popd
-pushd "$STAGEDIR/http"
-declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
-popd
+if [ -d "${STAGE_MOUNT}/${REALM_ENV}" ]
+	then
+	pushd "$STAGEDIR/java"
+	declare -a APP_CLUSTERS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+	popd 
+	pushd "$STAGEDIR/http"
+	declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
+	popd 
+else exit 0
+fi
 BUNDLEOLD=3
 # Drift environment and resource variables
 #RESTYPE='Linux'
@@ -247,7 +255,7 @@ do
 	BUNDLE="$TMP/${BUNDLENAME}/${BUNDLENAME}_Bundle.zip"
 	GROUPNAME="EAP ($APP_CLUSTER-$REALM_ENV-jboss)"
 	ARCHIVE="${APP_CLUSTER}.zip"
-	DEPLOYDIR='/www/${REALM_ENV}/${APP_CLUSTER}/deployments/'
+	DEPLOYDIR="/www/${REALM_ENV}/${APP_CLUSTER}/deployments/"
 	echo "Creating the Deployables for $APP_CLUSTER ..."
 	rm -rf $TMP/${BUNDLENAME}
 	mkdir $TMP/${BUNDLENAME}
@@ -258,17 +266,17 @@ do
 	pushd $STAGEDIR/java/$APP_CLUSTER
 	if [ -z "`find . -type f`" ]; then
                 echo "no staged files so SKIP"
-                popd
+                popd 
                 continue
         fi
 	zip -q -r $TMP/${BUNDLENAME}/${ARCHIVE} .
-	popd
+	popd 
 
 # artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
 	pushd $TMP/${BUNDLENAME}
 	writeDeploy > $TMP/${BUNDLENAME}/deploy.xml
 	zip -q -r $BUNDLE .
-	popd
+	popd 
 
 # purge the previous bundle
 	echo "Purging old Bundle versions: ${BUNDLENAME}..."
@@ -321,20 +329,20 @@ do
 	pushd $STAGEDIR/http/$VHOST_URL
 	if [ -z "`find . -type f`" ]; then 
 		echo "no staged files so SKIP"
-		popd
+		popd 
 		continue
 	fi
 	zip -q -r $TMP/${BUNDLENAME}/${ARCHIVE} .
-	popd
+	popd 
 # create INI configuration archive
 #	pushd $STAGEDIR/common/
 #	zip -q -r /$TMP/${BUNDLENAME}/module.zip .
-#	popd
+#	popd 
 # artifact file support - As a bundle recipe is simply a set of Ant tasks, there is nothing preventing a bundle from containing a tar.gz file and the Ant task actually executing a gunzip and untar commands to perform an installation of a local tar.gz file.
 	pushd $TMP/${BUNDLENAME}
 	writeDeploy > $TMP/${BUNDLENAME}/deploy.xml
 	zip -q -r $BUNDLE .
-	popd
+	popd 
 
 # purge the previous bundle
 	echo "Purging old Bundle versions: ${BUNDLENAME}..."

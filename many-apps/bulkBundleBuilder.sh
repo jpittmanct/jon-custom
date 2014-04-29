@@ -30,7 +30,8 @@ popd
 pushd "$STAGEDIR/http"
 declare -a VHOST_URLS=`find . -maxdepth 1 -mindepth 1 -type d | sed -e 's/\.\///'`
 popd
-BVER=${1}
+BUNDLEVER=${1}
+BUNDLEOLD=3
 # environment and resource variables
 RESTYPE='Linux'
 RESPLUGIN='Platforms'
@@ -53,7 +54,7 @@ cat << _EOF_
 <?xml version="1.0"?>
 <project name="NAIC JBoss Deployments" default="main"
         xmlns:rhq="antlib:org.rhq.bundle">
-    <rhq:bundle name="${BUNDLENAME}" version="$BVER" description="${BUNDLEDESC}">
+    <rhq:bundle name="${BUNDLENAME}" version="$BUNDLEVER" description="${BUNDLEDESC}">
         <rhq:deployment-unit name="drift" manageRootDir="false">
             <rhq:archive name="${ARCHIVE}" exploded="true">
             </rhq:archive>
@@ -86,7 +87,7 @@ var bundleVersions = BundleManager.findBundleVersionsByCriteria(bundleCrit);
 var deleteBundleIfEmpty = true;
 
 if ( bundleVersions != null ) { 
-        if ( bundleVersions.size() > 3 ) {
+        if ( bundleVersions.size() > $BUNDLEOLD ) {
 			bundleVersion = bundleVersions.get(0);
                         println("Deleting Version: " + bundleVersion.version + "   " + "ID: " + bundleVersion.id);
 			BundleManager.deleteBundleVersion(bundleVersion.id, deleteBundleIfEmpty);
@@ -263,9 +264,9 @@ do
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
-#	echo "Creating the Bundle for $APP_CLUSTER ..."
-#	createBundle > $SCRIPTS/createBundle.js
-#	$CLI $OPTS -f $SCRIPTS/createBundle.js
+	echo "Creating the Bundle for $APP_CLUSTER ..."
+	createBundle > $SCRIPTS/createBundle.js
+	$CLI $OPTS -f $SCRIPTS/createBundle.js
 
 # create the drift definition
 	#echo "Creating Drift Definition ..."
@@ -329,9 +330,9 @@ do
 
 # create the bundle from the recipe and archive
 # and then create the bundle definition
-#	echo "Creating the Bundle for $VHOST_URL ..."
-#	createBundle > $SCRIPTS/createBundle.js
-#	$CLI $OPTS -f $SCRIPTS/createBundle.js
+	echo "Creating the Bundle for $VHOST_URL ..."
+	createBundle > $SCRIPTS/createBundle.js
+	$CLI $OPTS -f $SCRIPTS/createBundle.js
 
 # create the drift definition
 #echo "Creating Drift Definition ..."

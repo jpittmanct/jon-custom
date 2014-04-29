@@ -107,12 +107,6 @@ createBundle() {
 cat $SAMPLES/util.js $SAMPLES/bundles.js
 cat  << _EOF_
 
-// set the location of the bundle archive
-var path = '$BUNDLE';
-
-// create the bundle version in JON
-createBundleVersion(path);
-
 // set all of the variables for the bundle destination
 var destinationName = '$GROUPNAME';
 var description = '$BUNDLEDESC';
@@ -120,16 +114,25 @@ var bundleName = '$BUNDLENAME';
 var groupName = '$GROUPNAME';
 var baseDirName = 'Root File System';
 var deployDir = '$DEPLOYDIR';
+// set the location of the bundle archive
+var path = '$BUNDLE';
 
-var groupCrit = new ResourceGroupCriteria;
-        groupCrit.addFilterName('$GROUPNAME');
-        var groups = ResourceGroupManager.findResourceGroupsByCriteria(groupCrit);
-        if (groups.empty) {
-                throw "No group called";
-        }
-
+// we must check for the existence of the BundleName first
+// the function createBundleDestination() does not handle an exception thrown when DestinationName already exists
+// so even though the createBundleDestination checks for a Bundle, we must explicitly skip previously created ones
+var bundleCrit = new BundleCriteria;
+        bundleCrit.addFilterName("${BUNDLENAME}");
+        var bundles = BundleManager.findBundlesByCriteria(bundleCrit);
+        if (bundles.empty) {
+// create the bundle version in JON
+		createBundleVersion(path);
 // create the new destinition in JON
-createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir);
+		createBundleDestination(destinationName, description, bundleName, groupName, baseDirName, deployDir);
+        } else {
+// only create the bundle version in JON; it will associate with the DestinationName declared inside the Bundle
+		createBundleVersion(path);
+	}
+
 
 _EOF_
 }
